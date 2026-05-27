@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>相变温度测定与可视化模块</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>相变温度测定与可视化模块</h1>
+        </header>
+        
+        <div class="main-content">
+            <aside class="left-panel">
+                <div class="panel-section">
+                    <h2>实验列表</h2>
+                    <select id="experimentSelect">
+                        <option value="">-- 选择实验 --</option>
+                    </select>
+                    <div class="button-group">
+                        <button id="newExperimentBtn" class="btn btn-primary">新建实验</button>
+                        <button id="deleteExperimentBtn" class="btn btn-danger">删除实验</button>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h2>实验信息</h2>
+                    <form id="experimentForm">
+                        <div class="form-group">
+                            <label for="experimentName">实验名称</label>
+                            <input type="text" id="experimentName" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="material">材料名称</label>
+                            <input type="text" id="material" name="material" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="experimentType">实验类型</label>
+                            <select id="experimentType" name="experiment_type" required>
+                                <option value="heating">升温</option>
+                                <option value="cooling">降温</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="description">实验描述</label>
+                            <textarea id="description" name="description" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="panel-section">
+                    <h2>数据点</h2>
+                    <div class="table-container">
+                        <table id="dataPointsTable">
+                            <thead>
+                                <tr>
+                                    <th>序号</th>
+                                    <th>时间(秒)</th>
+                                    <th>温度(℃)</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataPointsBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="button-group">
+                        <button id="addRowBtn" class="btn btn-secondary">新增行</button>
+                        <button id="saveDataBtn" class="btn btn-primary">保存数据</button>
+                        <button id="calculateBtn" class="btn btn-success">计算相变温度</button>
+                    </div>
+                </div>
+
+                <div class="panel-section" id="resultSection" style="display: none;">
+                    <h2>计算结果</h2>
+                    <div class="result-box">
+                        <p><strong>相变温度：</strong><span id="phaseTemp">-</span> ℃</p>
+                        <p><strong>对应时间：</strong><span id="phaseTime">-</span> 秒</p>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="right-panel">
+                <div class="chart-container">
+                    <h2>温度-时间曲线</h2>
+                    <canvas id="chartCanvas"></canvas>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
