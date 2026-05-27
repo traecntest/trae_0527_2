@@ -1,7 +1,10 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const { testConnection } = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -24,9 +27,18 @@ app.get('/api/health', (req, res) => {
 });
 
 if (require.main === module) {
-    app.listen(PORT, () => {
-        console.log(`服务器运行在 http://localhost:${PORT}`);
-    });
+    async function startServer() {
+        const connected = await testConnection(3, 2000);
+        if (!connected) {
+            console.warn('警告：无法连接到数据库，部分功能可能不可用');
+        }
+        
+        app.listen(PORT, () => {
+            console.log(`服务器运行在 http://localhost:${PORT}`);
+        });
+    }
+    
+    startServer();
 }
 
 module.exports = app;

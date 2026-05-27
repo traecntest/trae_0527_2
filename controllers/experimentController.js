@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { pool } = require('../config/database');
 const { calculatePhaseTransition } = require('../utils/phaseTransitionCalculator');
 
 const experimentController = {
@@ -169,31 +169,70 @@ const experimentController = {
                 });
             }
             
-            const values = data_points.map(point => [
-                experiment_id,
-                point.time_value,
-                point.temperature
-            ]);
+            if (data_points.length < 5) {
+                return res.status(400).json({
+                    success: false,
+                    error: '至少需要5个数据点'
+                });
+            }
             
-            const placeholders = data_points.map(() => '(?, ?, ?)').join(', ');
-            const flatValues = values.flat();
-            
-            const [result] = await pool.execute(
-                `INSERT INTO data_points (experiment_id, time_value, temperature) VALUES ${placeholders}`,
-                flatValues
+            const validPoints = data_points.filter(p => 
+                p.time_value !== undefined && 
+                p.temperature !== undefined &&
+                !isNaN(parseFloat(p.time_value)) &&
+                !isNaN(parseFloat(p.temperature))
             );
             
-            res.status(201).json({
-                success: true,
-                data: {
-                    insertedCount: result.affectedRows,
-                    experiment_id
+            if (validPoints.length !== data_points.length) {
+                return res.status(400).json({
+                    success: false,
+                    error: '存在无效数据点，请检查数据格式'
+                });
+            }
+            
+            const values = validPoints.map(point => [
+                experiment_id,
+                parseFloat(point.time_value),
+                parseFloat(point.temperature)
+            ]);
+            
+            const placeholders = validPoints.map(() => '(?, ?, ?)').join(', ');
+            const flatValues = values.flat();
+            
+            let connection;
+            try {
+                connection = await pool.getConnection();
+                const [result] = await connection.execute(
+                    `INSERT INTO data_points (experiment_id, time_value, temperature) VALUES ${placeholders}`,
+                    flatValues
+                );
+                
+                res.status(201).json({
+                    success: true,
+                    data: {
+                        insertedCount: result.affectedRows,
+                        experiment_id
+                    }
+                });
+            } catch (dbError) {
+                console.error('数据库操作失败:', dbError.message);
+                if (dbError.code === 'ETIMEDOUT' || dbError.code === 'ECONNREFUSED') {
+                    return res.status(503).json({
+                        success: false,
+                        error: '数据库连接超时，请稍后重试'
+                    });
                 }
-            });
+                throw dbError;
+            } finally {
+                if (connection) {
+                    connection.release();
+                }
+            }
         } catch (error) {
+            console.error('批量插入数据点失败:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message || '服务器内部错误'
             });
         }
     },
