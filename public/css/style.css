@@ -233,6 +233,58 @@ header h1 {
     background: #fafbfc;
 }
 
+.phase-transitions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.phase-transition-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #dc3545;
+}
+
+.transition-marker {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.transition-info {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 15px;
+    font-size: 14px;
+}
+
+.transition-name {
+    font-weight: 600;
+    color: #333;
+    flex-basis: 100%;
+}
+
+.transition-temp {
+    color: #dc3545;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.transition-time {
+    color: #666;
+}
+
+.transition-confidence {
+    color: #28a745;
+    font-size: 12px;
+}
+
 .result-box {
     background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
     padding: 15px;

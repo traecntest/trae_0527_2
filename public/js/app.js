@@ -3,6 +3,7 @@ const API_BASE = '/api/experiments';
 let currentExperimentId = null;
 let dataPoints = [];
 let phaseTransitionResult = null;
+let phaseTransitions = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     initEventListeners();
@@ -90,6 +91,7 @@ async function selectExperiment(e) {
         
         document.getElementById('resultSection').style.display = 'none';
         phaseTransitionResult = null;
+        phaseTransitions = [];
         
     } catch (error) {
         console.error('加载实验数据失败:', error);
@@ -103,6 +105,7 @@ function resetForm() {
     currentExperimentId = null;
     dataPoints = [];
     phaseTransitionResult = null;
+    phaseTransitions = [];
     document.getElementById('resultSection').style.display = 'none';
     renderDataTable();
     drawChart();
@@ -290,11 +293,9 @@ async function calculatePhaseTransition() {
         
         if (result.success) {
             phaseTransitionResult = result.phaseTransition;
+            phaseTransitions = result.phaseTransitions || [result.phaseTransition];
             
-            document.getElementById('phaseTemp').textContent = phaseTransitionResult.temperature;
-            document.getElementById('phaseTime').textContent = phaseTransitionResult.time;
-            document.getElementById('resultSection').style.display = 'block';
-            
+            displayResults(result);
             drawChart();
         } else {
             alert('计算失败: ' + result.error);
@@ -303,6 +304,33 @@ async function calculatePhaseTransition() {
         console.error('计算失败:', error);
         alert('计算失败');
     }
+}
+
+function displayResults(result) {
+    const resultSection = document.getElementById('resultSection');
+    const transitionsContainer = document.getElementById('phaseTransitionsList');
+    
+    transitionsContainer.innerHTML = '';
+    
+    phaseTransitions.forEach((transition, index) => {
+        const colors = ['#dc3545', '#ff6b35', '#28a745', '#17a2b8', '#6f42c1'];
+        const color = colors[index % colors.length];
+        
+        const item = document.createElement('div');
+        item.className = 'phase-transition-item';
+        item.innerHTML = `
+            <div class="transition-marker" style="background-color: ${color}"></div>
+            <div class="transition-info">
+                <span class="transition-name">${transition.name || '相变点 ' + (index + 1)}</span>
+                <span class="transition-temp">${transition.temperature} ℃</span>
+                <span class="transition-time">时间: ${transition.time}s</span>
+                <span class="transition-confidence">置信度: ${transition.confidence || 100}%</span>
+            </div>
+        `;
+        transitionsContainer.appendChild(item);
+    });
+    
+    resultSection.style.display = 'block';
 }
 
 function drawChart() {
@@ -316,7 +344,7 @@ function drawChart() {
         return;
     }
     
-    const padding = { top: 40, right: 60, bottom: 60, left: 80 };
+    const padding = { top: 40, right: 100, bottom: 60, left: 80 };
     const chartWidth = canvas.width - padding.left - padding.right;
     const chartHeight = canvas.height - padding.top - padding.bottom;
     
@@ -336,8 +364,8 @@ function drawChart() {
     drawCurve(ctx, padding, chartWidth, chartHeight, minTime, maxTime, minTemp, maxTemp);
     drawDataPoints(ctx, padding, chartWidth, chartHeight, minTime, maxTime, minTemp, maxTemp);
     
-    if (phaseTransitionResult) {
-        drawPhaseTransitionLine(ctx, padding, chartWidth, chartHeight, minTemp, maxTemp);
+    if (phaseTransitions && phaseTransitions.length > 0) {
+        drawPhaseTransitionLines(ctx, padding, chartWidth, chartHeight, minTemp, maxTemp, minTime, maxTime);
     }
     
     drawLabels(ctx, padding, chartWidth, chartHeight);
@@ -438,36 +466,42 @@ function drawDataPoints(ctx, padding, width, height, minTime, maxTime, minTemp, 
     });
 }
 
-function drawPhaseTransitionLine(ctx, padding, width, height, minTemp, maxTemp) {
-    const temp = phaseTransitionResult.temperature;
-    const y = padding.top + height - (temp - minTemp) / (maxTemp - minTemp || 1) * height;
+function drawPhaseTransitionLines(ctx, padding, width, height, minTemp, maxTemp, minTime, maxTime) {
+    const colors = ['#dc3545', '#ff6b35', '#28a745', '#17a2b8', '#6f42c1'];
     
-    ctx.strokeStyle = '#dc3545';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([8, 4]);
-    ctx.beginPath();
-    ctx.moveTo(padding.left, y);
-    ctx.lineTo(padding.left + width, y);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    
-    ctx.fillStyle = '#dc3545';
-    ctx.font = 'bold 14px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText(`相变点: ${temp.toFixed(2)}℃`, padding.left + width + 10, y + 5);
-    
-    const x = padding.left + (phaseTransitionResult.time - dataPoints[0].time_value) / 
-        (dataPoints[dataPoints.length - 1].time_value - dataPoints[0].time_value || 1) * width;
-    
-    ctx.fillStyle = '#dc3545';
-    ctx.beginPath();
-    ctx.arc(x, y, 8, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
-    ctx.fill();
+    phaseTransitions.forEach((transition, index) => {
+        const color = colors[index % colors.length];
+        const temp = transition.temperature;
+        const time = transition.time;
+        
+        const y = padding.top + height - (temp - minTemp) / (maxTemp - minTemp || 1) * height;
+        const x = padding.left + (time - minTime) / (maxTime - minTime || 1) * width;
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(padding.left + width, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = color;
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'left';
+        const labelY = y - (index * 20);
+        ctx.fillText(`${transition.name || '相变点'}: ${temp.toFixed(1)}℃`, padding.left + width + 10, labelY + 5);
+    });
 }
 
 function drawLabels(ctx, padding, width, height) {

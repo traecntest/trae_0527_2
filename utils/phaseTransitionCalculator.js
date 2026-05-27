@@ -30,47 +30,88 @@ function calculatePhaseTransition(dataPoints) {
         slopeChanges.push({
             index: i,
             change: Math.abs(slopes[i].slope - slopes[i-1].slope),
-            point: slopes[i]
+            slopeData: slopes[i]
         });
     }
     
     const smoothedChanges = smoothData(slopeChanges.map(s => s.change), 3);
     
-    let maxChangeIndex = 0;
-    let maxChange = 0;
     const startIdx = Math.floor(smoothedChanges.length * 0.1);
     const endIdx = Math.floor(smoothedChanges.length * 0.9);
     
-    for (let i = startIdx; i < endIdx; i++) {
-        if (smoothedChanges[i] > maxChange) {
-            maxChange = smoothedChanges[i];
-            maxChangeIndex = i;
+    const maxChange = Math.max(...smoothedChanges.slice(startIdx, endIdx));
+    const threshold = maxChange * 0.3;
+    
+    const peaks = findPeaks(smoothedChanges, startIdx, endIdx, threshold);
+    
+    if (peaks.length === 0) {
+        return { success: false, error: '未检测到显著的相变点' };
+    }
+    
+    const phaseTransitions = peaks.map((peakIdx, idx) => {
+        const transitionPoint = slopeChanges[peakIdx + 1] || slopeChanges[peakIdx];
+        return {
+            id: idx + 1,
+            name: `相变点 ${idx + 1}`,
+            temperature: Math.round(transitionPoint.slopeData.temperature * 100) / 100,
+            time: Math.round(transitionPoint.slopeData.time * 100) / 100,
+            x: transitionPoint.slopeData.time,
+            y: transitionPoint.slopeData.temperature,
+            slopeChange: smoothedChanges[peakIdx],
+            confidence: Math.round((smoothedChanges[peakIdx] / maxChange) * 100)
+        };
+    });
+    
+    phaseTransitions.sort((a, b) => a.temperature - b.temperature);
+    
+    if (phaseTransitions.length >= 2) {
+        phaseTransitions[0].name = '相变点 Ac1/Ar1';
+        if (phaseTransitions.length >= 3) {
+            phaseTransitions[phaseTransitions.length - 1].name = '相变点 Ac3/Ar3';
         }
     }
-    
-    const transitionPoint = slopeChanges[maxChangeIndex + 1] || slopeChanges[maxChangeIndex];
-    
-    if (!transitionPoint) {
-        return { success: false, error: '未检测到相变点' };
-    }
-    
-    const phaseTransitionTemp = transitionPoint.point.temperature;
-    const phaseTransitionTime = transitionPoint.point.time;
     
     return {
         success: true,
-        phaseTransition: {
-            temperature: Math.round(phaseTransitionTemp * 100) / 100,
-            time: Math.round(phaseTransitionTime * 100) / 100,
-            x: phaseTransitionTime,
-            y: phaseTransitionTemp
-        },
+        phaseTransition: phaseTransitions[0],
+        phaseTransitions: phaseTransitions,
         details: {
             dataPointsCount: n,
             maxSlopeChange: maxChange,
-            slopes: slopes.map(s => s.slope)
+            threshold: threshold,
+            slopes: slopes.map(s => s.slope),
+            slopeChanges: smoothedChanges
         }
     };
+}
+
+function findPeaks(data, startIdx, endIdx, threshold) {
+    const peaks = [];
+    
+    for (let i = startIdx; i < endIdx; i++) {
+        if (data[i] < threshold) continue;
+        
+        const isPeak = 
+            (i === startIdx || data[i] >= data[i - 1]) &&
+            (i === endIdx - 1 || data[i] >= data[i + 1]);
+        
+        if (isPeak) {
+            peaks.push(i);
+        }
+    }
+    
+    const minDistance = Math.floor(data.length * 0.1);
+    const filteredPeaks = [];
+    peaks.sort((a, b) => data[b] - data[a]);
+    
+    for (const peak of peaks) {
+        const tooClose = filteredPeaks.some(p => Math.abs(p - peak) < minDistance);
+        if (!tooClose) {
+            filteredPeaks.push(peak);
+        }
+    }
+    
+    return filteredPeaks.sort((a, b) => a - b);
 }
 
 function smoothData(data, windowSize) {

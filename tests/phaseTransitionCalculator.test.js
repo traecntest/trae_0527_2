@@ -77,6 +77,93 @@ describe('Phase Transition Calculator', () => {
         });
     });
 
+    describe('Multiple Phase Transitions', () => {
+        test('should detect multiple phase transitions in steel heating', () => {
+            const dataPoints = [];
+            for (let i = 0; i <= 60; i++) {
+                let temp;
+                const time = i * 10;
+                
+                if (time < 150) {
+                    temp = 25 + time * 4.5;
+                } else if (time < 200) {
+                    temp = 700 + (time - 150) * 0.5;
+                } else if (time < 250) {
+                    temp = 725 + (time - 200) * 5;
+                } else if (time < 300) {
+                    temp = 975 + (time - 250) * 0.8;
+                } else {
+                    temp = 1015 + (time - 300) * 4;
+                }
+                
+                dataPoints.push({ time_value: time, temperature: temp });
+            }
+
+            const result = calculatePhaseTransition(dataPoints);
+            
+            expect(result.success).toBe(true);
+            expect(result.phaseTransitions).toBeDefined();
+            expect(Array.isArray(result.phaseTransitions)).toBe(true);
+            expect(result.phaseTransitions.length).toBeGreaterThanOrEqual(1);
+        });
+
+        test('should return phase transitions array with proper structure', () => {
+            const dataPoints = [];
+            for (let i = 0; i < 30; i++) {
+                dataPoints.push({ 
+                    time_value: i * 10, 
+                    temperature: 25 + i * 30 
+                });
+            }
+
+            const result = calculatePhaseTransition(dataPoints);
+            
+            expect(result.success).toBe(true);
+            expect(result.phaseTransitions).toBeDefined();
+            
+            result.phaseTransitions.forEach(transition => {
+                expect(transition).toHaveProperty('id');
+                expect(transition).toHaveProperty('name');
+                expect(transition).toHaveProperty('temperature');
+                expect(transition).toHaveProperty('time');
+                expect(transition).toHaveProperty('x');
+                expect(transition).toHaveProperty('y');
+                expect(transition).toHaveProperty('confidence');
+            });
+        });
+
+        test('should sort phase transitions by temperature', () => {
+            const dataPoints = [];
+            for (let i = 0; i <= 60; i++) {
+                let temp;
+                const time = i * 10;
+                
+                if (time < 100) {
+                    temp = 25 + time * 5;
+                } else if (time < 150) {
+                    temp = 525 + (time - 100) * 1;
+                } else if (time < 200) {
+                    temp = 575 + (time - 150) * 5;
+                } else if (time < 250) {
+                    temp = 825 + (time - 200) * 0.5;
+                } else {
+                    temp = 850 + (time - 250) * 4;
+                }
+                
+                dataPoints.push({ time_value: time, temperature: temp });
+            }
+
+            const result = calculatePhaseTransition(dataPoints);
+            
+            if (result.phaseTransitions && result.phaseTransitions.length > 1) {
+                for (let i = 1; i < result.phaseTransitions.length; i++) {
+                    expect(result.phaseTransitions[i].temperature)
+                        .toBeGreaterThan(result.phaseTransitions[i-1].temperature);
+                }
+            }
+        });
+    });
+
     describe('Steel-like Heating Curve', () => {
         test('should detect Ac1 phase transition around 727°C for steel', () => {
             const dataPoints = [
@@ -174,6 +261,19 @@ describe('Phase Transition Calculator', () => {
                 ? tempStr.split('.')[1].length 
                 : 0;
             expect(decimalPlaces).toBeLessThanOrEqual(2);
+        });
+
+        test('should include threshold and maxSlopeChange in details', () => {
+            const dataPoints = [];
+            for (let i = 0; i < 10; i++) {
+                dataPoints.push({ time_value: i * 10, temperature: 25 + i * 50 });
+            }
+
+            const result = calculatePhaseTransition(dataPoints);
+            
+            expect(result.details).toHaveProperty('threshold');
+            expect(result.details).toHaveProperty('maxSlopeChange');
+            expect(result.details).toHaveProperty('slopeChanges');
         });
     });
 });
