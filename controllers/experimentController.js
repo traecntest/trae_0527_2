@@ -1,5 +1,12 @@
-const { pool } = require('../config/database');
+const db = require('../config/database');
 const { calculatePhaseTransition } = require('../utils/phaseTransitionCalculator');
+
+function getPool() {
+    if (db.useInMemory()) {
+        return db.getInMemoryPool();
+    }
+    return db.getPool();
+}
 
 const experimentController = {
     async createExperiment(req, res) {
@@ -13,6 +20,7 @@ const experimentController = {
                 });
             }
             
+            const pool = getPool();
             const [result] = await pool.execute(
                 'INSERT INTO experiments (name, material, experiment_type, description) VALUES (?, ?, ?, ?)',
                 [name, material, experiment_type, description || '']
@@ -29,15 +37,17 @@ const experimentController = {
                 }
             });
         } catch (error) {
+            console.error('创建实验失败:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message || '服务器内部错误'
             });
         }
     },
 
     async getExperiments(req, res) {
         try {
+            const pool = getPool();
             const [rows] = await pool.execute(
                 'SELECT * FROM experiments ORDER BY created_at DESC'
             );
@@ -47,9 +57,10 @@ const experimentController = {
                 data: rows
             });
         } catch (error) {
+            console.error('获取实验列表失败:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message || '服务器内部错误'
             });
         }
     },
@@ -57,6 +68,7 @@ const experimentController = {
     async getExperimentById(req, res) {
         try {
             const { id } = req.params;
+            const pool = getPool();
             const [rows] = await pool.execute(
                 'SELECT * FROM experiments WHERE id = ?',
                 [id]
@@ -74,9 +86,10 @@ const experimentController = {
                 data: rows[0]
             });
         } catch (error) {
+            console.error('获取实验详情失败:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message || '服务器内部错误'
             });
         }
     },
@@ -93,6 +106,7 @@ const experimentController = {
                 });
             }
             
+            const pool = getPool();
             const [result] = await pool.execute(
                 'UPDATE experiments SET name = ?, material = ?, experiment_type = ?, description = ? WHERE id = ?',
                 [name, material, experiment_type, description || '', id]
@@ -116,9 +130,10 @@ const experimentController = {
                 }
             });
         } catch (error) {
+            console.error('更新实验失败:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message || '服务器内部错误'
             });
         }
     },
@@ -126,6 +141,7 @@ const experimentController = {
     async deleteExperiment(req, res) {
         try {
             const { id } = req.params;
+            const pool = getPool();
             
             const [result] = await pool.execute(
                 'DELETE FROM experiments WHERE id = ?',
@@ -144,9 +160,10 @@ const experimentController = {
                 message: '实验删除成功'
             });
         } catch (error) {
+            console.error('删除实验失败:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message || '服务器内部错误'
             });
         }
     },
@@ -199,35 +216,19 @@ const experimentController = {
             const placeholders = validPoints.map(() => '(?, ?, ?)').join(', ');
             const flatValues = values.flat();
             
-            let connection;
-            try {
-                connection = await pool.getConnection();
-                const [result] = await connection.execute(
-                    `INSERT INTO data_points (experiment_id, time_value, temperature) VALUES ${placeholders}`,
-                    flatValues
-                );
-                
-                res.status(201).json({
-                    success: true,
-                    data: {
-                        insertedCount: result.affectedRows,
-                        experiment_id
-                    }
-                });
-            } catch (dbError) {
-                console.error('数据库操作失败:', dbError.message);
-                if (dbError.code === 'ETIMEDOUT' || dbError.code === 'ECONNREFUSED') {
-                    return res.status(503).json({
-                        success: false,
-                        error: '数据库连接超时，请稍后重试'
-                    });
+            const pool = getPool();
+            const [result] = await pool.execute(
+                `INSERT INTO data_points (experiment_id, time_value, temperature) VALUES ${placeholders}`,
+                flatValues
+            );
+            
+            res.status(201).json({
+                success: true,
+                data: {
+                    insertedCount: result.affectedRows,
+                    experiment_id
                 }
-                throw dbError;
-            } finally {
-                if (connection) {
-                    connection.release();
-                }
-            }
+            });
         } catch (error) {
             console.error('批量插入数据点失败:', error);
             res.status(500).json({
@@ -240,6 +241,7 @@ const experimentController = {
     async getDataPoints(req, res) {
         try {
             const { experiment_id } = req.params;
+            const pool = getPool();
             const [rows] = await pool.execute(
                 'SELECT * FROM data_points WHERE experiment_id = ? ORDER BY time_value',
                 [experiment_id]
@@ -250,9 +252,10 @@ const experimentController = {
                 data: rows
             });
         } catch (error) {
+            console.error('获取数据点失败:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message || '服务器内部错误'
             });
         }
     },
@@ -260,6 +263,7 @@ const experimentController = {
     async calculatePhaseTransition(req, res) {
         try {
             const { experiment_id } = req.params;
+            const pool = getPool();
             
             const [rows] = await pool.execute(
                 'SELECT time_value, temperature FROM data_points WHERE experiment_id = ? ORDER BY time_value',
@@ -286,9 +290,10 @@ const experimentController = {
                 details: result.details
             });
         } catch (error) {
+            console.error('计算相变温度失败:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message || '服务器内部错误'
             });
         }
     }
