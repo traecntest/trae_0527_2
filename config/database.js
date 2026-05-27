@@ -69,7 +69,11 @@ function useInMemory() {
     return inMemoryMode;
 }
 
-async function initDatabase() {
+function enableInMemoryMode() {
+    inMemoryMode = true;
+}
+
+async function initDatabase(retries = 2, retryDelay = 1500) {
     const config = {
         user: process.env.DB_USER || 'root',
         password: process.env.DB_PASSWORD || 'root',
@@ -77,9 +81,9 @@ async function initDatabase() {
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
-        connectTimeout: 5000,
-        enableKeepAlive: true,
-        keepAliveInitialDelay: 0
+        connectTimeout: 3000,
+        acquireTimeout: 5000,
+        timeout: 10000
     };
 
     if (process.env.DB_SOCKET_PATH) {
@@ -89,19 +93,32 @@ async function initDatabase() {
         config.port = process.env.DB_PORT || 3306;
     }
 
-    try {
-        mysqlPool = mysql.createPool(config);
-        const conn = await mysqlPool.getConnection();
-        await conn.ping();
-        conn.release();
-        console.log('✓ MySQL数据库连接成功');
-        return { success: true, pool: mysqlPool };
-    } catch (error) {
-        console.log(`✗ MySQL连接失败: ${error.message}`);
-        console.log('→ 切换到内存模式（演示模式）');
-        inMemoryMode = true;
-        return { success: false, pool: null };
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            mysqlPool = mysql.createPool(config);
+            const conn = await mysqlPool.getConnection();
+            await conn.ping();
+            conn.release();
+            console.log('✓ MySQL数据库连接成功');
+            inMemoryMode = false;
+            return { success: true, pool: mysqlPool };
+        } catch (error) {
+            console.log(`  数据库连接尝试 ${attempt}/${retries} 失败: ${error.message.split('\n')[0]}`);
+            if (mysqlPool) {
+                try {
+                    await mysqlPool.end();
+                } catch (e) {}
+                mysqlPool = null;
+            }
+            if (attempt < retries) {
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
+        }
     }
+
+    console.log('✗ MySQL连接失败，切换到内存模式（演示模式）');
+    inMemoryMode = true;
+    return { success: false, pool: null };
 }
 
 function getPool() {
@@ -110,7 +127,7 @@ function getPool() {
 
 function getInMemoryPool() {
     return {
-        execute: async (sql, params) => {
+        execute: async (sql, params = []) => {
             if (sql.startsWith('INSERT INTO experiments')) {
                 const newExp = {
                     id: nextExpId++,
@@ -214,5 +231,6 @@ module.exports = {
     getPool,
     getInMemoryPool,
     useInMemory,
+    enableInMemoryMode,
     getAllData
 };

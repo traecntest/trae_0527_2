@@ -5,7 +5,11 @@ function getPool() {
     if (db.useInMemory()) {
         return db.getInMemoryPool();
     }
-    return db.getPool();
+    const pool = db.getPool();
+    if (!pool) {
+        return db.getInMemoryPool();
+    }
+    return pool;
 }
 
 const experimentController = {
@@ -37,7 +41,7 @@ const experimentController = {
                 }
             });
         } catch (error) {
-            console.error('创建实验失败:', error);
+            console.error('创建实验失败:', error.message);
             res.status(500).json({
                 success: false,
                 error: error.message || '服务器内部错误'
@@ -57,7 +61,7 @@ const experimentController = {
                 data: rows
             });
         } catch (error) {
-            console.error('获取实验列表失败:', error);
+            console.error('获取实验列表失败:', error.message);
             res.status(500).json({
                 success: false,
                 error: error.message || '服务器内部错误'
@@ -86,7 +90,7 @@ const experimentController = {
                 data: rows[0]
             });
         } catch (error) {
-            console.error('获取实验详情失败:', error);
+            console.error('获取实验详情失败:', error.message);
             res.status(500).json({
                 success: false,
                 error: error.message || '服务器内部错误'
@@ -130,7 +134,7 @@ const experimentController = {
                 }
             });
         } catch (error) {
-            console.error('更新实验失败:', error);
+            console.error('更新实验失败:', error.message);
             res.status(500).json({
                 success: false,
                 error: error.message || '服务器内部错误'
@@ -160,7 +164,7 @@ const experimentController = {
                 message: '实验删除成功'
             });
         } catch (error) {
-            console.error('删除实验失败:', error);
+            console.error('删除实验失败:', error.message);
             res.status(500).json({
                 success: false,
                 error: error.message || '服务器内部错误'
@@ -230,7 +234,7 @@ const experimentController = {
                 }
             });
         } catch (error) {
-            console.error('批量插入数据点失败:', error);
+            console.error('批量插入数据点失败:', error.message);
             res.status(500).json({
                 success: false,
                 error: error.message || '服务器内部错误'
@@ -252,7 +256,7 @@ const experimentController = {
                 data: rows
             });
         } catch (error) {
-            console.error('获取数据点失败:', error);
+            console.error('获取数据点失败:', error.message);
             res.status(500).json({
                 success: false,
                 error: error.message || '服务器内部错误'
@@ -290,7 +294,7 @@ const experimentController = {
                 details: result.details
             });
         } catch (error) {
-            console.error('计算相变温度失败:', error);
+            console.error('计算相变温度失败:', error.message);
             res.status(500).json({
                 success: false,
                 error: error.message || '服务器内部错误'
